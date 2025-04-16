@@ -44,6 +44,62 @@ page 50101 CarBrandCard
             }
         }
     }
+    actions
+    {
+        area(Processing)
+        {
+            group(WorkflowActions)
+            {
+                Caption = 'Workflow Actions';
+
+                action(SendToWorkflow)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Send to Workflow';
+                    Image = SendTo;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    trigger OnAction();
+                    begin
+                        // Code to send the car brand to a workflow process
+                        Message('Car Brand %1 sent to workflow.', Rec.BrandNo);
+                        Rec.Status := '2'; // Assuming 2 is the status for "In Workflow"
+                        Rec.Modify(true);
+                    end;
+                }
+                action(Approve)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Approve';
+                    Image = Approve;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    trigger OnAction();
+                    begin
+                        // Code to approve the car brand
+                        Message('Car Brand %1 approved.', Rec.BrandNo);
+                        Rec.Status := '3'; // Assuming 3 is the status for "Approved"
+                        Rec.Modify(true);
+                    end;
+                }
+                action(Reject)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Reject';
+                    Image = Reject;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    trigger OnAction();
+                    begin
+                        // Code to reject the car brand
+                        Message('Car Brand %1 rejected.', Rec.BrandNo);
+                        Rec.Status := '1'; // Assuming 4 is the status for "Rejected"
+                        Rec.Modify(true);
+                    end;
+                }
+            }
+        }
+    }
 }
 
 page 50103 CarMake
