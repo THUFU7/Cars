@@ -14,11 +14,5 @@ tableextension 50100 CarBrandExt extends "Sales & Receivables Setup"
             DataClassification = ToBeClassified;
             TableRelation = "No. Series".Code;
         }
-        field(50105; Status; Code[20])
-        {
-            Caption = 'Status';
-            DataClassification = ToBeClassified;
-            TableRelation = "No. Series".Code;
-        }
     }
 }

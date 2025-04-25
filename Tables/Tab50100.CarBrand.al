@@ -19,6 +19,12 @@ table 50100 CarBrand
             Caption = 'CountryOfOrigin';
             TableRelation = "Country/Region".Code;
         }
+        field(4; Status; Enum "Car Status")
+        {
+            Caption = 'Status';
+            InitValue = Open;
+        }
+        
     }
     keys
     {

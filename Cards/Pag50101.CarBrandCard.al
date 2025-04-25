@@ -52,48 +52,47 @@ page 50101 CarBrandCard
             {
                 Caption = 'Workflow Actions';
 
-                action(SendToWorkflow)
+                action(SendToApproval)
                 {
                     ApplicationArea = All;
-                    Caption = 'Send to Workflow';
-                    Image = SendTo;
+                    Caption = 'Send to Approval';
+                    Image = SendApprovalRequest;
                     Promoted = true;
                     PromotedCategory = Process;
-                    trigger OnAction();
+                    Visible = Rec.Status = Rec.Status::Open;
+
+                    trigger OnAction()
+                    var
+                        CarWorkflowMgmt: Codeunit "CarsWorkflowMgmt"; 
+                        RecRef: RecordRef;
                     begin
-                        // Code to send the car brand to a workflow process
-                        Message('Car Brand %1 sent to workflow.', Rec.BrandNo);
-                        Rec.Status := '2'; // Assuming 2 is the status for "In Workflow"
+                        RecRef.GetTable(Rec);
+                        if CarWorkflowMgmt.CheckCarApprovalsWorkflowEnabled(RecRef) then
+                            CarWorkflowMgmt.OnSendCarForApproval(RecRef);
+                        Message('Car Brand %1 was sent for approval.', Rec.BrandNo);
+                        Rec.Status := Rec.Status::"Pending Approval";
                         Rec.Modify(true);
                     end;
                 }
-                action(Approve)
+
+
+                action(Cancel)
                 {
                     ApplicationArea = All;
-                    Caption = 'Approve';
-                    Image = Approve;
+                    Caption = 'Cancel';
+                    Image = CancelApprovalRequest;
                     Promoted = true;
                     PromotedCategory = Process;
+                    visible = Rec.Status = Rec.Status::"Pending Approval";
                     trigger OnAction();
+                    var
+                        CarWorkflowMgmt: Codeunit "CarsWorkflowMgmt"; 
+                        RecRef: RecordRef;
                     begin
-                        // Code to approve the car brand
-                        Message('Car Brand %1 approved.', Rec.BrandNo);
-                        Rec.Status := '3'; // Assuming 3 is the status for "Approved"
-                        Rec.Modify(true);
-                    end;
-                }
-                action(Reject)
-                {
-                    ApplicationArea = All;
-                    Caption = 'Reject';
-                    Image = Reject;
-                    Promoted = true;
-                    PromotedCategory = Process;
-                    trigger OnAction();
-                    begin
-                        // Code to reject the car brand
-                        Message('Car Brand %1 rejected.', Rec.BrandNo);
-                        Rec.Status := '1'; // Assuming 4 is the status for "Rejected"
+                        RecRef.GetTable(Rec);
+                        CarWorkflowMgmt.OnCancelCarForApproval(RecRef);
+                        Message('Car Brand %1 cancelled.', Rec.BrandNo);
+                        Rec.Status := Rec.Status::Open;
                         Rec.Modify(true);
                     end;
                 }

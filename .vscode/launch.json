@@ -9,6 +9,7 @@
             "server": "http://localhost:8080/BC252",
             "serverInstance": "BC252",
             "port": 7049,
+            "schemaUpdateMode": "ForceSync",
             "authentication": "Windows",
             "startupObjectId": 22,
             "startupObjectType": "Page",
