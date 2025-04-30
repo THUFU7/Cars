@@ -1,4 +1,4 @@
-enum 50101 "Car Status"
+enum 50101 "CarStatus"
 {
     Extensible = true;
     
