@@ -1,18 +1,54 @@
-codeunit 50101 CarsWorkflowMgmt
+codeunit 50100 "Custom Workflow Mgmt"
 {
-    procedure CheckCarApprovalsWorkflowEnabled(var RecRef: RecordRef): Boolean
+    procedure CheckApprovalsWorkflowEnabled(var RecRef: RecordRef): Boolean
     begin
-        if not WorkflowManagement.CanExecuteWorkflow(RecRef, GetWorkflowCode(RunWorkflowOnSendCarForApprovalCode, RecRef)) then begin
+        if not WorkflowMgt.CanExecuteWorkflow(RecRef, GetWorkflowCode(RUNWORKFLOWONSENDFORAPPROVALCODE, RecRef)) then
             Error(NoWorkflowEnabledErr);
-        end;
         exit(true);
     end;
 
-
-
-    procedure GetWorkflowCode(WorkflowCode: Code[128]; RecRef: RecordRef): Code[128]
+    procedure GetWorkflowCode(WorkflowCode: code[128]; RecRef: RecordRef): Code[128]
     begin
         exit(DelChr(StrSubstNo(WorkflowCode, RecRef.Name), '=', ' '));
+    end;
+
+
+    [IntegrationEvent(false, false)]
+    procedure OnSendWorkflowForApproval(var RecRef: RecordRef)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    procedure OnCancelWorkflowForApproval(var RecRef: RecordRef)
+    begin
+    end;
+
+    // Add events to the library
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Workflow Event Handling", 'OnAddWorkflowEventsToLibrary', '', false, false)]
+    local procedure OnAddWorkflowEventsToLibrary()
+    var
+        RecRef: RecordRef;
+        WorkflowEventHandling: Codeunit "Workflow Event Handling";
+    begin
+        RecRef.Open(Database::"CarBrand");
+        WorkflowEventHandling.AddEventToLibrary(GetWorkflowCode(RUNWORKFLOWONSENDFORAPPROVALCODE, RecRef), Database::"CarBrand",
+          GetWorkflowEventDesc(WorkflowSendForApprovalEventDescTxt, RecRef), 0, false);
+        WorkflowEventHandling.AddEventToLibrary(GetWorkflowCode(RUNWORKFLOWONCANCELFORAPPROVALCODE, RecRef), DATABASE::"CarBrand",
+          GetWorkflowEventDesc(WorkflowCancelForApprovalEventDescTxt, RecRef), 0, false);
+    end;
+    // subscribe
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Custom Workflow Mgmt", 'OnSendWorkflowForApproval', '', false, false)]
+    local procedure RunWorkflowOnSendWorkflowForApproval(var RecRef: RecordRef)
+    begin
+        WorkflowMgt.HandleEvent(GetWorkflowCode(RUNWORKFLOWONSENDFORAPPROVALCODE, RecRef), RecRef);
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Custom Workflow Mgmt", 'OnCancelWorkflowForApproval', '', false, false)]
+    local procedure RunWorkflowOnCancelWorkflowForApproval(var RecRef: RecordRef)
+    begin
+        WorkflowMgt.HandleEvent(GetWorkflowCode(RUNWORKFLOWONCANCELFORAPPROVALCODE, RecRef), RecRef);
     end;
 
     procedure GetWorkflowEventDesc(WorkflowEventDesc: Text; RecRef: RecordRef): Text
@@ -20,53 +56,99 @@ codeunit 50101 CarsWorkflowMgmt
         exit(StrSubstNo(WorkflowEventDesc, RecRef.Name));
     end;
 
-    [IntegrationEvent(false, false)]
-    procedure OnSendCarForApproval(var RecRef: RecordRef)
+    // handle the document;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Workflow Response Handling", 'OnOpenDocument', '', false, false)]
+    local procedure OnOpenDocument(RecRef: RecordRef; var Handled: Boolean)
+    var
+        CustomWorkflowHdr: Record "CarBrand";
     begin
+        case RecRef.Number of
+            Database::"CarBrand":
+                begin
+                    RecRef.SetTable(CustomWorkflowHdr);
+                    CustomWorkflowHdr.Validate(Status, CustomWorkflowHdr.Status::Open);
+                    CustomWorkflowHdr.Modify(true);
+                    Handled := true;
+                end;
+        end;
     end;
 
-    [IntegrationEvent(false, false)]
-    procedure OnCancelCarForApproval(var RecRef: RecordRef)
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Approvals Mgmt.", 'OnSetStatusToPendingApproval', '', false, false)]
+    local procedure OnSetStatusToPendingApproval(RecRef: RecordRef; var Variant: Variant; var IsHandled: Boolean)
+    var
+        CustomWorkflowHdr: Record "CarBrand";
     begin
+        case RecRef.Number of
+            Database::"CarBrand":
+                begin
+                    RecRef.SetTable(CustomWorkflowHdr);
+                    CustomWorkflowHdr.Validate(Status, CustomWorkflowHdr.Status::"Pending Approval");
+                    CustomWorkflowHdr.Modify(true);
+                    Variant := CustomWorkflowHdr;
+                    IsHandled := true;
+                end;
+        end;
     end;
 
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Workflow Event Handling", 'OnAddWorkflowEventsToLibrary', '', false, false)]
-    local procedure OnAddWorkflowEventsToLibrary()
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Approvals Mgmt.", 'OnPopulateApprovalEntryArgument', '', false, false)]
+    local procedure OnPopulateApprovalEntryArgument(var RecRef: RecordRef; var ApprovalEntryArgument: Record "Approval Entry"; WorkflowStepInstance: Record "Workflow Step Instance")
+    var
+        CustomWorkflowHdr: Record "CarBrand";
+    begin
+        case RecRef.Number of
+            DataBase::"CarBrand":
+                begin
+                    RecRef.SetTable(CustomWorkflowHdr);
+                    ApprovalEntryArgument."Document No." := CustomWorkflowHdr."BrandNo";
+                end;
+        end;
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Workflow Response Handling", 'OnReleaseDocument', '', false, false)]
+    local procedure OnReleaseDocument(RecRef: RecordRef; var Handled: Boolean)
+    var
+        CustomWorkflowHdr: Record "CarBrand";
+    begin
+        case RecRef.Number of
+            DataBase::"CarBrand":
+                begin
+                    RecRef.SetTable(CustomWorkflowHdr);
+                    CustomWorkflowHdr.Validate(Status, CustomWorkflowHdr.Status::Released);
+                    CustomWorkflowHdr.Modify(true);
+                    Handled := true;
+                end;
+        end;
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Approvals Mgmt.", 'OnRejectApprovalRequest', '', false, false)]
+    local procedure OnRejectApprovalRequest(var ApprovalEntry: Record "Approval Entry")
     var
         RecRef: RecordRef;
-        WorkflowEventHandling: Codeunit "Workflow Event Handling";
-
+        CustomWorkflowHdr: Record "CarBrand";
+        v: Codeunit "Record Restriction Mgt.";
     begin
-        RecRef.Open(DATABASE::CarBrand);
-        WorkflowEventHandling.AddEventToLibrary(GetWorkflowCode(RunWorkflowOnSendCarForApprovalCode, RecRef), Database::CarBrand,
-          GetWorkflowEventDesc(CarSendForApprovalEventDescTxt, RecRef), 0, false);
-        WorkflowEventHandling.AddEventToLibrary(GetWorkflowCode(RunWorkflowOnCancelCarForApprovalCode, RecRef), DATABASE::CarBrand,
-          GetWorkflowEventDesc(CarCancelForApprovalEventDescTxt, RecRef), 0, false);
-
-    end;
-
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"CarsWorkflowMgmt", 'OnSendCarForApproval', '', false, false)]
-    local procedure RunWorkflowOnSendCarForApproval(var RecRef: RecordRef)
-    begin
-        WorkflowManagement.HandleEvent(GetWorkflowCode(RunWorkflowOnSendCarForApprovalCode, RecRef), RecRef);
-    end;
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"CarsWorkflowMgmt", 'OnCancelCarForApproval', '', false, false)]
-    local procedure RunWorkflowOnCancelCarForApproval(var RecRef: RecordRef)
-    begin
-        WorkflowManagement.HandleEvent(GetWorkflowCode(RunWorkflowOnCancelCarForApprovalCode, RecRef), RecRef);
+        case ApprovalEntry."Table ID" of
+            DataBase::"CarBrand":
+                begin
+                    if CustomWorkflowHdr.Get(ApprovalEntry."Document No.") then begin
+                        CustomWorkflowHdr.Validate(Status, CustomWorkflowHdr.Status::Rejected);
+                        CustomWorkflowHdr.Modify(true);
+                    end;
+                end;
+        end;
     end;
 
     var
-        WorkflowManagement: Codeunit "Workflow Management";
 
-        RunWorkflowOnSendCarForApprovalCode: Label 'SEND%1FORAPPROVAL';
+        WorkflowMgt: Codeunit "Workflow Management";
 
-        RunWorkflowOnCancelCarForApprovalCode: Label 'SEND%1FORCANCELLATION';
+        RUNWORKFLOWONSENDFORAPPROVALCODE: Label 'SEND%1FORAPPROVAL';
+        RUNWORKFLOWONCANCELFORAPPROVALCODE: Label 'CANCEL%1FORAPPROVAL';
+        NoWorkflowEnabledErr: Label 'No approval workflow for this record type is enabled.';
+        WorkflowSendForApprovalEventDescTxt: Label 'Approval Request of %1 is requested.';
+        WorkflowCancelForApprovalEventDescTxt: Label 'Approval Request of %1 is canceled.';
 
-        NoWorkflowEnabledErr: Label 'No workflow enabled for %1. Please enable a workflow in the Workflow Setup page.';
 
-        CarSendForApprovalEventDescTxt: Label 'Approval of %1 is requested.';
-
-        CarCancelForApprovalEventDescTxt: Label 'Approval of %1 is cancelled.';
 
 }

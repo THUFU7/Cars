@@ -63,15 +63,12 @@ page 50101 CarBrandCard
 
                     trigger OnAction()
                     var
-                        CarWorkflowMgmt: Codeunit "CarsWorkflowMgmt"; 
+                        CarWorkflowMgmt: Codeunit "Custom Workflow Mgmt";
                         RecRef: RecordRef;
                     begin
                         RecRef.GetTable(Rec);
-                        if CarWorkflowMgmt.CheckCarApprovalsWorkflowEnabled(RecRef) then
-                            CarWorkflowMgmt.OnSendCarForApproval(RecRef);
-                        Message('Car Brand %1 was sent for approval.', Rec.BrandNo);
-                        Rec.Status := Rec.Status::"Pending Approval";
-                        Rec.Modify(true);
+                        if CarWorkflowMgmt.CheckApprovalsWorkflowEnabled(RecRef) then
+                            CarWorkflowMgmt.OnSendWorkflowForApproval(RecRef);
                     end;
                 }
 
@@ -86,19 +83,49 @@ page 50101 CarBrandCard
                     visible = Rec.Status = Rec.Status::"Pending Approval";
                     trigger OnAction();
                     var
-                        CarWorkflowMgmt: Codeunit "CarsWorkflowMgmt"; 
+                        CarWorkflowMgmt: Codeunit "Custom Workflow Mgmt";
                         RecRef: RecordRef;
                     begin
                         RecRef.GetTable(Rec);
-                        CarWorkflowMgmt.OnCancelCarForApproval(RecRef);
-                        Message('Car Brand %1 cancelled.', Rec.BrandNo);
-                        Rec.Status := Rec.Status::Open;
-                        Rec.Modify(true);
+                        CarWorkflowMgmt.OnCancelWorkflowForApproval(RecRef);
                     end;
                 }
             }
         }
+
+        area(Creation)
+        {
+            group(Approval)
+            {
+                action(Approvals)
+                {
+                   ApplicationArea = All;
+                    Caption = 'Approvals';
+                    Image = Approvals;
+                    ToolTip = 'View approval requests.';
+                    Promoted = true;
+                    PromotedCategory = New;
+                    Visible = HasApprovalEntries;
+                    trigger OnAction()
+                    begin
+                        ApprovalsMgmt.OpenApprovalEntriesPage(Rec.RecordId);
+                    end; 
+                }
+            }
+        }
     }
+    trigger OnAfterGetCurrRecord()
+    begin
+        OpenApprovalEntriesExistCurrUser := ApprovalsMgmt.HasOpenApprovalEntriesForCurrentUser(Rec.RecordId);
+        OpenApprovalEntriesExist := ApprovalsMgmt.HasOpenApprovalEntries(Rec.RecordId);
+        CanCancelApprovalForRecord := ApprovalsMgmt.CanCancelApprovalForRecord(Rec.RecordId);
+        HasApprovalEntries := ApprovalsMgmt.HasApprovalEntries(Rec.RecordId);
+    end;
+
+    var
+        OpenApprovalEntriesExistCurrUser, OpenApprovalEntriesExist, CanCancelApprovalForRecord
+        , HasApprovalEntries : Boolean;
+        ApprovalsMgmt: Codeunit "Approvals Mgmt.";
 }
 
 page 50103 CarMake
